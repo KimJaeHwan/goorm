@@ -16,14 +16,14 @@ const int const INITIAL_FRAME_ID = 0;
 const int const TIME_STEP = 2;
 const int const ITER_MAX = 5;
 
-int rand_per(int per)
+int rand_per(int per) 		// 명령 인자에 들어온 숫자% 확률로 발생
 {
 	int rand_num = 0;
 	rand_num = rand()%100;
 	if(rand_num < per)
-		return 1;
+		return 1;	// per% 확률 통과
 	else
-		return 0;
+		return 0;	// per% 확률 불통과
 	return -1;
 }
 
