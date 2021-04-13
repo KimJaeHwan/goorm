@@ -1,3 +1,14 @@
+/*	
+세그멘테이션 폴트 남
+다시 짜보셈
+첫번째 distance나오고 오류
+
+*/
+
+
+
+
+
 #include <stdio.h>
 #include <limits.h>
 #define TRUE 1
