@@ -1,9 +1,8 @@
 #include <stdio.h>
-#include <limits.h>
 #define TRUE 1
 #define FALSE 0
 #define MAX_NODES 10
-#define INF 99999999
+#define INF 99999999		//충분히 큰값 처음에 INT_MAX를 이용한 최댓값을 사용하려 했으나 거리를 더하는 과정에서 음수가 되어 변경
 
 int distance[MAX_NODES];	//시작 정점으로 부터 각 정점까지의 거리비용
 int found[MAX_NODES] = {FALSE};		// 최소 거리 계산이 완료된 정점을 표시
