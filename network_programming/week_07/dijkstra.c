@@ -38,13 +38,10 @@ int choose(int distance[], int n, int found[])
 	min_dis = INF;
 	for(i = 0; i < n; i++)
 	{
-		if(!found[i])		// 최단경로 계산이 완료되지 않은 정점(FALSE인 부분)
+		if(!found[i] && (distance[i] < min_dis))		// 최단경로 계산이 완료되지 않은 정점(FALSE인 부분)
 		{	
-			if(distance[i] < min_dis)
-			{
-				min_dis = distance[i];		// 가장 작을때의 값저장
-				min_index = i;			// 가장 작을떄의 인덱스 값저장
-			}
+			min_dis = distance[i];		// 가장 작을때의 값저장
+			min_index = i;			// 가장 작을떄의 인덱스 값저장
 		}
 	}
 	return min_index;
