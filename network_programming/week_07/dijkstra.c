@@ -62,10 +62,10 @@ int choose_v(int n)			// 테스트용 인자 없는 함수
 	return min_index;
 }
 
-int test_found(int n)		// 전역변수 found에서 0~ n까지의  데이터가 전부 1인지 확인한다.
+int test_found(int n)		// 전역변수 found에서 0~ n-1까지의  데이터가 전부 1인지 확인한다.
 {
 	int i,sf;
-	for (sf = 1,i=0;i < n ;i++)			// found[1] ~ found[n]까지 모든 데이터가 1인지 테스트
+	for (sf = 1,i=0;i < n ;i++)			// found[0] ~ found[n-1]까지 모든 데이터가 1인지 테스트
 	{
 		sf = sf & found[i];			// and연산을 하여 전부 1이면 sf는 1이다.
 		if(!sf)
