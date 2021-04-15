@@ -77,13 +77,14 @@ int test_found(int n)		// 전역변수 found에서 0~ n-1까지의  데이터가
 
 void shortest_path(GraphType* g, int start_node)
 {
-	int i,sf,z=0;
+	int i,j,sf,z=0;
 	found[start_node] = TRUE;			// 자기 자신의 거리는 알고있다.
 	for (i = 0;i < g->n;i++)			// Step 0번과같은 초기와 작업
 	{
 		distance[i] = g->cost[start_node][i];	// 현재 start_node의 인접 노트들의 거리 저장
 	}
-	while(!test_found(g->n))			// found배열에 전부 1이 들어갈 떄 까지 반복
+	//while(!test_found(g->n))			// found배열에 전부 1이 들어갈 떄 까지 반복
+	for(j = 0; j < g->n;j++)			// 노드의 개수 만큼 반복될 것이다.
 	{
 		print_status(g,z++);
 		sf = choose(distance,g->n,found);	// 다음 최소 거리를 가지는 인덱스 반환 distace랑 found는 전역 변수인데 인자로 줘야대나????
