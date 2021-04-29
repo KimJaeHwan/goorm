@@ -1,0 +1,6 @@
+Connected..........
+ [Server] List]
+1. Get Current Time
+2. Download File
+3. Echo Server
+Enter : 
