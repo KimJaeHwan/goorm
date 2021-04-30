@@ -83,18 +83,18 @@ int main(int argc, char * argv[])
 
 		while(1)
 		{
-			str_len = recv(sock,message,BUF_SIZE -1,0);	// -1
-			if(str_len < BUF_SIZE - 1 )
+			str_len = recv(sock,message,BUF_SIZE,0);	// -1
+			if(str_len < BUF_SIZE )
 			{
-				printf("보이냐\n\n\n\n\n\n\n\n\n\n");
+				//printf("보이냐\n\n\n\n\n\n\n\n\n\n");
 				fwrite((void*)message,1,str_len,file);	// -1
 				puts("파일 수신 완료 !!\n");
 				break;
 			}else{
 				send(sock,message,1,0);				//동기화를 위한 send
-				message[str_len] = 0;
-				printf("[%d]",str_len);
-				fwrite((void*)message,1,BUF_SIZE - 1,file);
+				//message[str_len] = 0;
+				//printf("[%d]",str_len);
+				fwrite((void*)message,1,BUF_SIZE,file);
 			}
 		}
 		fclose(file);

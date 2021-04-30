@@ -110,13 +110,13 @@ int main(int argc, char * argv[])
 			error_handling("fopen() error");
 		while(1)
 		{
-			i = fread((void*)message,1,BUF_SIZE -1,file);	// -1
+			i = fread((void*)message,1,BUF_SIZE,file);	// -1
 			
 			message[i] = 0;
 			//printf("[%s]",message);
-			if(i < BUF_SIZE -1)		//-1
+			if(i < BUF_SIZE)		//-1
 			{
-			printf("[%s]",message);
+			//printf("[%s]",message);
 			
 				if(feof(file) != 0)
 				{
@@ -129,7 +129,7 @@ int main(int argc, char * argv[])
 			       break;	
 			}
 			//usleep(1000);
-			send(clnt_sock, message,BUF_SIZE -1,0);	// -1
+			send(clnt_sock, message,BUF_SIZE,0);	// -1
 			recv(clnt_sock, &temp,1,0); 	//동기화를 위한  recv
 			//message[i] = 0;
 			//printf("[%s]",message);
