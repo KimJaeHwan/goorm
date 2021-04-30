@@ -121,7 +121,7 @@ int main(int argc, char * argv[])
 				if(feof(file) != 0)
 				{
 					//usleep(1000);
-					send(clnt_sock,message,BUF_SIZE -1,0);	//-1
+					send(clnt_sock,message,i,0);	//-1
 					puts("file send complete!!\n");
 					break;
 				}else

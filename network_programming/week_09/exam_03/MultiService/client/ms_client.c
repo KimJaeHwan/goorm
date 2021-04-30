@@ -84,7 +84,7 @@ int main(int argc, char * argv[])
 		while(1)
 		{
 			str_len = recv(sock,message,BUF_SIZE -1,0);	// -1
-			if(str_len == EOF )
+			if(str_len < BUF_SIZE - 1 )
 			{
 				printf("보이냐\n\n\n\n\n\n\n\n\n\n");
 				fwrite((void*)message,1,str_len,file);	// -1
