@@ -158,7 +158,20 @@ int main(int argc, char * argv[])
 			};
 		}else if(!strcmp(message,"\\service 3"))	// ECHO server 
 		{
+			printf("ECHO server \n");
+			
+			while((str_len = recv(clnt_sock, message, BUF_SIZE,0)) != 0){
+				message[str_len] = 0;
+				printf("recv from client : %s\n",message);
+				if(!strcmp(message,"\\quit\n")){
+					printf("quit echo server \n");
+					break;
+				}
 
+				send(clnt_sock,message,str_len,0);
+			}
+			
+			//str_len = recv
 		}
 
 

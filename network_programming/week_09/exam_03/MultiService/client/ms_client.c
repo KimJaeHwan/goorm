@@ -113,7 +113,20 @@ int main(int argc, char * argv[])
 		}while(1);
 	}else if(!strcmp(menu_num,"3"))			// ECHO server
 	{
-	
+			while(1)
+			{
+				fputs("Input message : ",stdout);
+				fgets(message, BUF_SIZE, stdin);
+				send(sock,message,strlen(message),0);
+
+				if(!strcmp(message,"\\quit\n")){
+					break;
+				}
+				
+				str_len = recv(sock,message,BUF_SIZE,0);
+				message[str_len] = 0;
+				printf("[You] %s\n",message);
+			}
 	}
 
 	}				// while(1)
