@@ -61,84 +61,91 @@ int main(int argc, char * argv[])
 		error_handling("accept() error");
 	else
 		printf("Connected client\n");
-	strcpy(message,SERV_LIST);
-	send(clnt_sock,message, strlen(message),0);	// 서버 서비스 리트스 전송
-	str_len = recv(clnt_sock,message,BUF_SIZE,0);		// 서비스 번호 받기
-	message[str_len] = 0;
-	//fputs(message,stdout);					// 테스트용 출력
-	if(!strcmp(message,"\\service 1"))			// service 1 시간 반환
-	{
-		time(&rawtime);
-		timeinfo = localtime(&rawtime);
-		//printf("%s", asctime(timeinfo));			// 테스트용 출력
-		strcpy(message,"[Current Time]\n");
-		strcat(message,asctime(timeinfo));
-		send(clnt_sock,message,strlen(message),0);		// 시간 전송
-	}else if(!strcmp(message,"\\service 2"))
-	{
-		strcpy(message,"[Available File List]\n");
-		strcat(message,FILE_LIST);
-		send(clnt_sock, message,strlen(message),0);
-		printf("send file List\n");
-		str_len = recv(clnt_sock, message, BUF_SIZE,0); 			//정수 번호받음
+	while(1){
+		strcpy(message,SERV_LIST);
+		send(clnt_sock,message, strlen(message),0);	// 서버 서비스 리트스 전송
+		str_len = recv(clnt_sock,message,BUF_SIZE,0);		// 서비스 번호 받기
 		message[str_len] = 0;
-		//fputs(message,stdout);						// 리스트 번호받음
-		//printf("%d",num);
-		/*
-		if(!strcmp(message,"1")){				// 리스트 번호별 다운로드
-			strcpy(select_file,"Book.txt");
-			printf("[%d]",atoi(message));
-		}
-		else if(!strcmp(message,"2"))
-			strcpy(select_file,"HallymUniv.jpg");
-		*/
-		file = fopen(file_list[atoi(message) - 1],"rb");	// 입력한 파일 오픈
-		printf("file open\n");					// 테스트용 출력
-		i = atoi(message) -1;
-		//printf("%d",i);
-		printf("%s]\n",file_list[i]);
-		strcpy(message,file_list[i]);
-		printf("%s] %d\n",message,sizeof(message));
-		//send(clnt_sock,file_list[atoi(message) -1],strlen(file_list[atoi(message) - 1]) , 0); // 파일이름 보내기
-
-		send(clnt_sock,message,strlen(message),0);
-		printf("send : %s\nsize : %d\n",message,strlen(message));
-		recv(clnt_sock,&temp,1,0);		// 동기화를 위한 recv
-		
-				
-		if(file == NULL)
-			error_handling("fopen() error");
-		while(1)
+		//fputs(message,stdout);					// 테스트용 출력
+		if(!strcmp(message,"\\service 1"))			// service 1 시간 반환
 		{
-			i = fread((void*)message,1,BUF_SIZE,file);	// -1
-			
-			message[i] = 0;
-			//printf("[%s]",message);
-			if(i < BUF_SIZE)		//-1
-			{
-			//printf("[%s]",message);
-			
-				if(feof(file) != 0)
-				{
-					//usleep(1000);
-					send(clnt_sock,message,i,0);	//-1
-					puts("file send complete!!\n");
-					break;
-				}else
-					puts("fail to send file\n");
-			       break;	
-			}
-			//usleep(1000);
-			send(clnt_sock, message,BUF_SIZE,0);	// -1
-			recv(clnt_sock, &temp,1,0); 	//동기화를 위한  recv
-			//message[i] = 0;
-			//printf("[%s]",message);
-		}
-		
-		fclose(file);
-	}
-	}
+			time(&rawtime);
+			timeinfo = localtime(&rawtime);
+			//printf("%s", asctime(timeinfo));			// 테스트용 출력
+			strcpy(message,"[Current Time]\n");
+			strcat(message,asctime(timeinfo));
+			send(clnt_sock,message,strlen(message),0);		// 시간 전송
+			recv(clnt_sock,message,BUF_SIZE,0);			// 시간 전송후 다음 메세지를 또보내지않기위한 recv
+		}else if(!strcmp(message,"\\service 2"))		// Download file
+		{
+			do{
+			strcpy(message,"[Available File List]\n");
+			strcat(message,FILE_LIST);
+			send(clnt_sock, message,strlen(message),0);			// 파일 리스트 보내기
+			printf("send file List\n");
+			str_len = recv(clnt_sock, message, BUF_SIZE,0);			// 버퍼 오류
+			message[str_len] = 0;
+			printf("reciv : %s size : %d\n",message,strlen(message));				// 받는 데이터 확인	
 
+			if(atoi(message) == 3){				// 3 번들어오면 나가리
+				printf("잘나가니??");
+				break;
+			}
+
+			file = fopen(file_list[atoi(message) - 1],"rb");	// 입력한 파일 오픈
+			printf("file[%s] open\n",file_list[atoi(message) -1]);					// 테스트용 출력
+			i = atoi(message) -1;
+			//printf("%d",i);
+			printf("%s]\n",file_list[i]);
+			strcpy(message,file_list[i]);
+			printf("%s] %d\n",message,sizeof(message));
+			//send(clnt_sock,file_list[atoi(message) -1],strlen(file_list[atoi(message) - 1]) , 0); // 파일이름 보내기
+
+			send(clnt_sock,message,strlen(message),0);
+			printf("send : %s\nsize : %d\n",message,strlen(message));
+			recv(clnt_sock,&temp,1,0);		// 파일 전송전 동기화를 위한 recv 
+			
+				
+			if(file == NULL)
+				error_handling("fopen() error");
+			while(1)	// 파일 전송 과정
+			{
+				i = fread((void*)message,1,BUF_SIZE,file);	// -1
+				
+				message[i] = 0;
+				//printf("[%s]",message);
+				if(i < BUF_SIZE)		//-1
+				{
+				//printf("[%s]",message);
+				
+					if(feof(file) != 0)
+					{
+						//usleep(1000);
+						send(clnt_sock,message,i,0);	//-1
+						//recv(clnt_sock, message,BUF_SIZE,0);	// 동기화를 위한  recv
+						puts("file send complete!!\n");
+						break;
+					}else
+						puts("fail to send file\n");
+					break;	
+				}
+				//usleep(1000);
+				send(clnt_sock, message,BUF_SIZE,0);	// -1
+				recv(clnt_sock, &temp,BUF_SIZE,0); 	//동기화를 위한  recv
+				//message[i] = 0;
+				//printf("[%s]",message);
+			}	
+			fclose(file);
+
+			}while(1);
+		}else if(!strcmp(message,"\\service 3"))	// ECHO server 
+		{
+
+		}
+
+
+	}			// while(1) 서비스 반복용
+	}			// while(1) client테스트용
 	close(clnt_sock);
 	close(serv_sock);
 
