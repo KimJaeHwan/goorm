@@ -43,7 +43,7 @@ int main(int argc, char * argv[])
 	strcpy(menu_service,"\\service ");
 	str_len = recv(sock, message, BUF_SIZE,0);	// 서버 리스트 받아오는 recv
 	message[str_len] = 0;				// recv함수로 받아오면 왜인지 모르게 뒤에 null이 없어지는듯
-	printf("\n [Server] List\n%s\n",message);	// 서버 리스트 출력
+	printf("\n [Serveice List]\n%s\n",message);	// 서버 리스트 출력
 	fputs("Enter : ",stdout);
 	//fgets(menu_num,sizeof(menu_num),stdin);
 	scanf("%c%c",&menu_num[0],&temp);
@@ -51,7 +51,7 @@ int main(int argc, char * argv[])
 	strcat(menu_service,menu_num);			// \\service <num>
 	//printf("%s",menu_service);
 	//menu_service[8] = menu_num;
-	printf("send menu_number : %s\n",menu_service);			// 보낼 메세지 출력
+	//printf("send menu_number : %s\n",menu_service);			// 보낼 메세지 출력 테스트 용
 	send(sock,menu_service,strlen(menu_service),0);	// \\service <num> 전송
 	
 	if(!strcmp(menu_num,"1")){
@@ -84,7 +84,7 @@ int main(int argc, char * argv[])
 
 		str_len = recv(sock,message,BUF_SIZE,0);		// 파일 이름 수신
 		message[str_len] = 0;
-		printf("%s]",message);
+		// printf("%s]",message);		// 테스트용 출력
 		send(sock,message,str_len,0);				// 파일 수신전 동기화를 위한 send
 		
 		file = fopen(message,"wb");
