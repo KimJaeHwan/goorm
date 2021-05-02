@@ -117,7 +117,7 @@ int main(int argc, char * argv[])
 
 			send(clnt_sock,message,strlen(message),0);			//파일 명 전송
 			printf("send : %s\nsize : %d\n",message,strlen(message));
-			recv(clnt_sock,&temp,1,0);		// 파일 전송전 동기화를 위한 recv 
+			recv(clnt_sock,&temp,BUF_SIZE,0);		// 파일 전송전 동기화를 위한 recv 
 			
 				
 			if(file == NULL)
@@ -154,7 +154,7 @@ int main(int argc, char * argv[])
 			//voidBuffer(clnt_sock);		// 버퍼 지우기
 			
 			recv(clnt_sock,&temp,BUF_SIZE,0);	// 파일 수신 완료후 동기화
-			recv(clnt_sock,&temp,BUF_SIZE,0);
+			//recv(clnt_sock,&temp,BUF_SIZE,0);
 			};
 		}else if(!strcmp(message,"\\service 3"))	// ECHO server 
 		{
