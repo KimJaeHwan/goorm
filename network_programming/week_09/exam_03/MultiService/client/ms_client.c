@@ -85,7 +85,7 @@ int main(int argc, char * argv[])
 		str_len = recv(sock,message,BUF_SIZE,0);		// 파일 이름 수신
 		message[str_len] = 0;
 		// printf("%s]",message);		// 테스트용 출력
-		send(sock,message,str_len,0);				// 파일 수신전 동기화를 위한 send
+		send(sock,message,str_len,0);				// 파일 수신전 동기화를 위한 send   여기서 보낸 양과 server에서 수신하는 데이터의 양 차이가 발생함
 		
 		file = fopen(message,"wb");
 		
