@@ -80,7 +80,7 @@ int main( int argc, char * argv[])
 	fcntl(unix_clnt_sock, F_SETFL, fcntl(unix_clnt_sock, F_GETFL, 0) | O_NONBLOCK);
 	fcntl(inet_serv_sock, F_SETFL, fcntl(inet_serv_sock, F_GETFL, 0) | O_NONBLOCK);
 	/* recv from input message */
-	while(1){
+	//while(1){
 		//while((str_len = recv(unix_clnt_sock,message, BUF_SIZE -1,0)) < 0 | ) { usleep(3000); }
 		while(1)
 		{
@@ -90,6 +90,10 @@ int main( int argc, char * argv[])
 				message[str_len] = 0;
 				printf("[ME] : %s",message);
 				send(inet_serv_sock, message, strlen(message), 0);
+				if(!strcmp(message,"quit\n")){
+					printf("[Server] quit\n");
+					break;
+				}
 			}
 			str_len = recv(inet_serv_sock , message, BUF_SIZE -1, 0);
 			if(str_len > 0)
@@ -99,7 +103,7 @@ int main( int argc, char * argv[])
 			}
 			usleep(3000);
 		}
-	}
+	//}
 	/* end recv from input message  */
 	
 	close(inet_serv_sock);

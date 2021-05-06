@@ -37,7 +37,7 @@ int main(int argc, char * argv[])
 		
 		send(sock, message, strlen(message) , 0);
 		/* \\quit */
-		if(!strcmp(message,"\\quit\n"))
+		if(!strcmp(message,"quit\n"))
 			break;
 	
 	/* send message to server */
