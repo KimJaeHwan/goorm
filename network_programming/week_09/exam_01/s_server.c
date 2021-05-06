@@ -30,7 +30,7 @@ int main(int argc, char *argv[])
 	if(bind(serv_sock, (struct sockaddr*)&serv_adr, sizeof(serv_adr)) == -1 )
 		error_handling("bind() error");
 	if(listen(serv_sock, 5) == -1)
-		error_handling("bind() error");
+		error_handling("listen() error");
 	clnt_adr_sz = sizeof(clnt_adr);
 
 	clnt_sock = accept(serv_sock, (struct sockaddr*)&clnt_adr, &clnt_adr_sz);
