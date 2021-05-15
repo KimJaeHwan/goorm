@@ -25,6 +25,7 @@ int main(int argc, char *argv[])
 	int shm_id;
 	void *shm_addr;
 	
+	int *shm;
 	if(argc != 2)
 	{
 		printf("Usage : %s <port> \n",argv[0]);
@@ -53,13 +54,15 @@ int main(int argc, char *argv[])
 
 	
 	*((int *)shm_addr) = 0;
+	shm = (int*)shm_addr;
 	while(1){
 		clnt_sock = accept(serv_sock, (struct sockaddr*)&clnt_adr,&clnt_adr_sz);
-		*((int *)shm_addr) = *((int *)shm_addr) + 1;
+		//*((int *)shm_addr) = *((int *)shm_addr) + 1;
+		(*shm)++;
 		if(clnt_sock == -1)
 			error_handling("accept() error");
 		else
-			printf("Number of service  client : %d \n",*((int *)shm_addr));
+			printf("Number of service  client : %d \n",*shm);
 		pid = fork();
 		switch(pid){
 			case 0:
@@ -67,8 +70,8 @@ int main(int argc, char *argv[])
 				while((str_len = recv(clnt_sock, message, BUFSIZ,0)) != 0){
 					message[str_len] = 0;
 					if(!strcmp(message, "quit\n")){
-						*((int *)shm_addr) = *((int *)shm_addr) - 1;
-						printf("Number of service  client : %d \n",*((int*)shm_addr));
+						(*shm)--;
+						printf("Number of service  client : %d \n",*shm);
 						close(clnt_sock);
 						exit(0);
 						break;
