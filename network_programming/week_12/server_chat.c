@@ -80,13 +80,13 @@ int main(int argc, char * argv[])
 					{
 						message[str_len] = 0;
 						printf("MSG from client %d : %s\n",i,message);
-						/*
-						for(j = 0; j < fd_max +1; j++)
+						
+						for(j = 4; j < fd_max +1; j++)
 						{
 							send(j,message,str_len,0);
 							printf("send client %d\n",j);
 						}
-						*/
+						
 						printf("fd_max : %d\n", fd_max);
 						send(i,message,str_len,0);
 
