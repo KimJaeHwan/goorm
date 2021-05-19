@@ -49,7 +49,7 @@ int main(int argc, char *argv[])
 			error_handling("accept() error");	
 		}
 		else
-			printf("Client #%d connected.\n",i+1);
+			printf("Client #%d connected. %d\n",i+1,clnt_sock[i]);
 	}
 	
 	while(1)
