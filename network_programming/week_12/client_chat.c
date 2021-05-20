@@ -96,15 +96,15 @@ int main(int argc, char * argv[])
 		{
 			if(FD_ISSET(i,&reads))
 			{
+				if((str_len = recv(i, message, BUFSIZ, 0)) == 0)
+					close(i);
 				if(i == inet_sock){
-					str_len = recv(i, message, BUFSIZ, 0);
 					
 					message[str_len] = 0;
 					printf("MSG from server : %s %d\n",message,i);
 				}
 				else
 				{
-					str_len = recv(i, message, BUFSIZ, 0);
 					send(inet_sock,message,str_len,0);
 				}
 			}
