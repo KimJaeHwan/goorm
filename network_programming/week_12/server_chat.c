@@ -6,12 +6,14 @@
 #include <sys/socket.h>
 #include <sys/time.h>		// timeout안쓰면 삭제해도 됨
 #include <sys/select.h>
+#include <sys/shm.h>
 
 void error_handling(char * message);
 
-#define MAX_ROOM 3
+#define MAX_ROOM 4	// 대기실 1개 채팅룸 3개
 #define MAX_USER 10
 #define MAX_CAPA 5
+#define KEY_NUM 1234
 
 struct chatting_room{
 	int pid;
@@ -33,13 +35,19 @@ int main(int argc, char * argv[])
 	char menu_list[200] = "<MENU>\n1.채팅방 목록보기\n2. 채팅방 참여하기(사용법 : 2 <채팅방 번호>)\n3. 프로그램종료\n(0을 입력하면 메뉴가 다시 표시됩니다)\n";
 
 
-	struct chatting_room chat[MAX_ROOM];
-	int fork_pid;
+	//struct chatting_room chat[MAX_ROOM];
+	struct chatting_room *chatp;
+	int shm_id;
+	void * shm_addr;
+
+	int pid;
 
 	if(argc!=2){
 		printf("Usage : %s <port>\n",argv[0]);
 		exit(1);
 	}
+	
+	int chat_room_num;
 
 	serv_sock = socket(AF_INET, SOCK_STREAM, 0);
 	memset(&serv_adr, 0 , sizeof(serv_adr));
@@ -53,18 +61,43 @@ int main(int argc, char * argv[])
 	if(listen(serv_sock, 5) == -1)
 		error_handling("listen() error");
 
-	FD_ZERO(&reads);
-	FD_SET(serv_sock, &reads);
-	fd_max = serv_sock;
-	for( i = 0;i<MAX_ROOM;i++){			// 3개의 자식 프로세스 생성
-		if(chat[i].pid = fork())	// 포크된 결과가 자식이면 그만
-			break;
-	}
-	if(fork_pid == 0){	// 자식 프로세스
-		
+	
+	/*
+	 *  공유 메모리 세팅 해당 공유 메모리는 PID와 user들의 소켓스크립터, user들의 수를 생각하고 있다.
+	 *  사이즈는 총 4개를 만들것이며 0번은 server부모 프로세스(대기실)로 사용되며 나머지는 채팅 룸이
+	 *  될것이다.
+	*/
+	
+	shm_id = shmget( (key_t)KEY_NUM, sizeof(struct chatting_room) * MAX_ROOM, IPC_CREAT | 0666);
+	shm_addr = shmat( shm_id, (void *)0, 0);
 
+	chatp = (struct chatting_room *)shm_addr;
+	
+	/* 서버(대기실)의 상태 정보 초기화*/
+	chat_room_num = 0;
+	chatp[0].pid = 1111;
+	chatp[0].user_cnt = 0;
+
+
+	for( i = 1;i<MAX_ROOM;i++){			// 3개의 자식 프로세스 생성
+		pid = fork();
+
+		if(pid ==  0 ){	// 포크된 결과가 자식이면 그만
+			chat_room_num = i;
+			break;
+		}else{		// 부모 프로세스 인경우 pid 저장
+			chatp[i].pid = pid;
+		}
+	}
+		
+	if(pid == 0){			// 자식 프로세스
+		close(serv_sock);
+		printf("Hello I'm child process room_numver : %d ,PID : %d\n",chat_room_num,chatp[chat_room_num].pid);
 	}
 	else{			// 부모 프로세스
+		FD_ZERO(&reads);
+		FD_SET(serv_sock, &reads);
+		fd_max = serv_sock;
 	while(1)
 	{
 		cpy_reads = reads;
@@ -128,9 +161,9 @@ int main(int argc, char * argv[])
 								break;
 							case '1':
 								strcpy(message,"<ChatRomm info>\n");
-								for(i = 0;i<MAX_ROOM;i++)
+								for(i = 1;i<MAX_ROOM;i++)
 								{
-									sprintf(message,"%s[ID: %d] Chatroom-%d (%d/%d)\n",message,i,i,chat[i].user_cnt,MAX_CAPA);
+									sprintf(message,"%s[ID: %d] Chatroom-%d (%d/%d)\n",message,i,i,chatp[i].user_cnt,MAX_CAPA);
 								}
 								send(clnt_sock, message,strlen(message), 0);
 								break;
