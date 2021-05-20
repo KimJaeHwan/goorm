@@ -1,5 +1,3 @@
 # goorm
 
 test
-
-test2
