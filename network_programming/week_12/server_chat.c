@@ -162,7 +162,7 @@ int main(int argc, char * argv[])
 
 								FD_CLR(clnt_sock,&reads);	// 채팅방에 참여하고자하는 clnt를 select 검사에서 삭제
 								/* n번 채팅방 참여 시도 n번이 현재 존재하는 채팅방인지 체크하는 부분이 필요할듯*/						
-								chat_room_num = atoi(message + 2);
+								chat_room_num = atoi(message + 2) + 1;		// 0 번이 들어오면 1번 인덱스에 값을 넣게 되므로 1을 더해준다.
 								pthread_mutex_lock(&mutx);
 
 								printf("%d[[]]\n",chatp[chat_room_num].user_cnt);
