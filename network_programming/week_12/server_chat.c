@@ -20,6 +20,8 @@ struct chatting_room{
 	int user_cnt;
 };
 
+void pntArr(int *arr, int size);
+void delInd(int* arr, int* size, int ind);
 void * handle_clnt(void * arg);
 void send_msg(char *msg, int str_len, struct chatting_room *chat);
 void error_handling(char * message);
@@ -28,8 +30,9 @@ int maxArr(int * arr, int size);
 int test = 0;
 
 
-/* thread vlaues */
-int return_sock;
+/* server room  */
+int return_sock[MAX_USER];
+int return_cnt = 0;
 pthread_mutex_t mutx;
 
 int main(int argc, char * argv[])
@@ -101,8 +104,20 @@ int main(int argc, char * argv[])
 	while(1)
 	{
 		cpy_reads = reads;
-		timeout.tv_sec = 5;
-		timeout.tv_usec = 5000;
+		timeout.tv_sec = 1;
+		timeout.tv_usec = 1000;
+		
+		/* 채팅방에서 나온 사용자들 FD_SET해주는 과정 */
+		pthread_mutex_lock(&mutx);
+		for(i = 0; i < return_cnt; i++)
+		{
+			printf("return sock[%d] : %d\n",i,return_sock[i]); 
+			FD_SET(return_sock[i],&reads);
+			if(fd_max < return_sock[i])
+				fd_max = return_sock[i];
+		}
+		return_cnt = 0;
+		pthread_mutex_unlock(&mutx);
 
 		if((fd_num = select(fd_max + 1, &cpy_reads, 0,0, &timeout)) == -1)	// error
 			break;
@@ -237,10 +252,6 @@ void * handle_clnt(void *arg)
 	{
 		if(FD_ISSET(chat->users[i],&cpy_reads))
 		{
-			/*
-			while((str_len=recv(users[i], message,BUFSIZ,0))!= 0)
-				send_msg(message,str_len, chat);
-			*/
 			str_len=recv(chat->users[i],message,BUFSIZ,0);
 			send_msg(message,str_len,chat);
 			message[str_len] = 0;
@@ -250,15 +261,20 @@ void * handle_clnt(void *arg)
 			{
 				printf("[Ch. %d] client : %d quit\n",chat->room_num,chat->users[i]);
 				FD_CLR(chat->users[i],&reads);
-				//chat->users[chat->user_cnt++] = chat->users[i];
-				while(i++<chat->user_cnt-1)	// 배열 요소에서 제거
-					chat->users[i] = chat->users[i + 1];
-				chat->user_cnt--;
+				
+				pntArr(chat->users,chat->user_cnt);		// check users
+				delInd(chat->users,&(chat->user_cnt), i);	// chat->users에서 i인덱스 사용자 제거
+				pntArr(chat->users,chat->user_cnt);		// check users
+
+				/* 서버 대기실에 추가 */
+				return_sock[return_cnt++] = chat->users[i];
 			}
 			if(str_len == 0){		// 임시로 해놓은것임
 				FD_CLR(chat->users[i],&reads);
 				close(chat->users[i]);
-
+				pntArr(chat->users,chat->user_cnt);		// check users
+				delInd(chat->users,&(chat->user_cnt), i);	// chat->users에서 i인덱스 사용자 제거
+				pntArr(chat->users,chat->user_cnt);		// check users
 			}
 			pthread_mutex_unlock(&mutx);
 		}
@@ -267,6 +283,24 @@ void * handle_clnt(void *arg)
 	}
 }
 
+void delInd(int* arr, int* size, int ind)
+{
+	for(; ind < *size - 1; ind++)
+	{
+		arr[ind] = arr[ind + 1];
+	}
+	(*size)--;
+}
+void pntArr(int *arr, int size)
+{
+	int i;
+	printf("pntArr : ");
+	for(i = 0; i < size; i++)
+	{
+		printf("[%d] ",arr[i]);
+	}
+	printf("\n");
+}
 void send_msg(char * msg,int str_len, struct chatting_room *chat)
 {
 	int i;
