@@ -29,12 +29,12 @@ int test = 0;
 
 
 /* thread vlaues */
-int clnt_sock;
+int return_sock;
 pthread_mutex_t mutx;
 
 int main(int argc, char * argv[])
 {
-	int serv_sock;
+	int serv_sock, clnt_sock;
 	struct sockaddr_in serv_adr, clnt_adr;
 	struct timeval timeout;
 	fd_set reads, cpy_reads;
@@ -43,7 +43,6 @@ int main(int argc, char * argv[])
 
 	/* select value */
 	int fd_max, str_len, fd_num, i,j;
-	
 	char message[BUFSIZ];
 	char menu_list[200] = "<MENU>\n1.채팅방 목록보기\n2. 채팅방 참여하기(사용법 : 2 <채팅방 번호>)\n3. 프로그램종료\n(0을 입력하면 메뉴가 다시 표시됩니다)\n";
 
@@ -129,7 +128,7 @@ int main(int argc, char * argv[])
 					send(clnt_sock,menu_list,strlen(menu_list),0);
 					printf("send menu\n");
 				}
-				else
+				else	// read message!
 				{
 					str_len = recv(i, message, BUFSIZ, 0);
 					if(str_len == 0)	// close message
@@ -142,38 +141,34 @@ int main(int argc, char * argv[])
 					{
 						message[str_len] = 0;
 						printf("MSG from client %d : %s\n",i,message);
-						
+						send(i,message,str_len,0);
 						switch(message[0]){
 							case '0':
-								send(clnt_sock,menu_list,strlen(menu_list),0);
+								send(i,menu_list,strlen(menu_list),0);
 								printf("send menu\n");
 								break;
 							case '1':
-								strcpy(message,"<ChatRomm info>\n");
-								for(i = 1;i<MAX_ROOM;i++)
+								strcpy(message,"<ChatRoom info\n");
+								for(j = 1;j < MAX_ROOM;j++)
 								{
-									sprintf(message,"%s[ID: %d] Chatroom-%d (%d/%d)\n",message,i,i,chatp[i].user_cnt,MAX_CAPA);
+									sprintf(message,"%s[ID: %d] Chatroom-%d (%d/%d)\n",message,j,j,chatp[j].user_cnt,MAX_CAPA);
 								}
-								send(clnt_sock, message,strlen(message), 0);
+								send(i, message,strlen(message), 0);
 								break;
 							case '2':
-								if(fd_max == clnt_sock)		// 현재 fd_max값이 채팅방에 참여하고자 하는 clnt이면 값을 하나 내린다.
+								if(fd_max == i)		// 현재 fd_max값이 채팅방에 참여하고자 하는 clnt이면 값을 하나 내린다.
 									fd_max--;
 
-								FD_CLR(clnt_sock,&reads);	// 채팅방에 참여하고자하는 clnt를 select 검사에서 삭제
+								FD_CLR(i,&reads);	// 채팅방에 참여하고자하는 clnt를 select 검사에서 삭제
 								/* n번 채팅방 참여 시도 n번이 현재 존재하는 채팅방인지 체크하는 부분이 필요할듯*/						
 								chat_room_num = atoi(message + 2);
 								pthread_mutex_lock(&mutx);
 
-								printf("%d[[]]\n",chatp[chat_room_num].user_cnt);
-								chatp[chat_room_num].users[chatp[chat_room_num].user_cnt++] = clnt_sock;
-								test++;	// 이곳을 지나면 더이상 서버 메인 프로세스에서는 입력을 받지 못한다.		그리고 왜인지모르겠는데 chatp[chat_room_num].user_cnt가 2이다...
-								printf("chat_room_num : %d %d]\n",chat_room_num,test);
-								
+								printf("chat_room[%d] user_cnt : %d client_num : %d\n",chat_room_num,chatp[chat_room_num].user_cnt, i);
+								chatp[chat_room_num].users[chatp[chat_room_num].user_cnt++] = i;
 								pthread_mutex_unlock(&mutx);
 
 								//pthread_create(&t_id, NULL, handle_clnt,(void*)&chatp[chat_room_num]);						
-								printf("채팅방 %d번입장 \n",chat_room_num);
 								
 								break;
 							case '3':
@@ -220,14 +215,14 @@ void * handle_clnt(void *arg)
 
 	while(1){
 	pthread_mutex_lock(&mutx);
-	printf("[Ch. %d user_cnt : %d\n",chat->room_num,chat->user_cnt);
-	printf("Test : %d\n",test);
-	for(i = 0;i < user_cnt; i++)
+	//printf("[Ch. %d user_cnt : %d\n",chat->room_num,chat->user_cnt);
+	//printf("Test : %d\n",test);
+	for(i = 0;i < chat->user_cnt; i++)
 	{
-		FD_SET(users[i],&reads);
-		if( fd_max < users[i]) 
-			fd_max = users[i];
-		printf("[Ch. %d user : %d\n",chat->room_num,users[i]);
+		FD_SET(chat->users[i],&reads);
+		if( fd_max < chat->users[i]) 
+			fd_max = chat->users[i];
+		printf("[Ch. %d user : %d\n",chat->room_num,chat->users[i]);
 	}
 	pthread_mutex_unlock(&mutx);
 	
@@ -238,23 +233,32 @@ void * handle_clnt(void *arg)
 		break;
 	if(fd_num == 0)	// timeout
 		continue;
-	for( i = 0; i < user_cnt; i++)
+	for( i = 0; i < chat->user_cnt; i++)
 	{
-		if(FD_ISSET(users[i],&cpy_reads))
+		if(FD_ISSET(chat->users[i],&cpy_reads))
 		{
+			/*
 			while((str_len=recv(users[i], message,BUFSIZ,0))!= 0)
 				send_msg(message,str_len, chat);
+			*/
+			str_len=recv(chat->users[i],message,BUFSIZ,0);
+			send_msg(message,str_len,chat);
 			message[str_len] = 0;
 			printf("[Ch. %d] message %s\n",chat->room_num, message);	
 			pthread_mutex_lock(&mutx);
-			if(str_len == 0)		// 'quit 와 같은 해제 문자 입력시 탈출
+			if(!strcmp(message,"quit\n"))		// 'quit 와 같은 해제 문자 입력시 탈출
 			{
-				FD_CLR(users[i],&reads);
-				chat->users[chat->user_cnt++] = users[i];
-				while(i++<user_cnt+1)	// 배열 요소에서 제거
-					users[i] = users[i + 1];
-				user_cnt--;
-				chat->user_cnt = user_cnt;
+				printf("[Ch. %d] client : %d quit\n",chat->room_num,chat->users[i]);
+				FD_CLR(chat->users[i],&reads);
+				//chat->users[chat->user_cnt++] = chat->users[i];
+				while(i++<chat->user_cnt-1)	// 배열 요소에서 제거
+					chat->users[i] = chat->users[i + 1];
+				chat->user_cnt--;
+			}
+			if(str_len == 0){		// 임시로 해놓은것임
+				FD_CLR(chat->users[i],&reads);
+				close(chat->users[i]);
+
 			}
 			pthread_mutex_unlock(&mutx);
 		}
