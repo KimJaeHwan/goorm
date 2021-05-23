@@ -27,9 +27,6 @@ void send_msg(char *msg, int str_len, struct chatting_room *chat);
 void error_handling(char * message);
 int maxArr(int * arr, int size);
 
-int test = 0;
-
-
 /* server room  */
 int return_sock[MAX_USER];
 int return_cnt = 0;
@@ -212,9 +209,7 @@ void * handle_clnt(void *arg)
 	int i, fd_max = -1, fd_num;
 	struct timeval timeout;
 	fd_set reads, cpy_reads;
-	//int * users;
-	//int user_cnt;
-	//chat_room_num = *((int*) arg);
+	
 	char message[BUFSIZ];
 	struct chatting_room* chat;
 
@@ -222,16 +217,11 @@ void * handle_clnt(void *arg)
 
 	printf("Thread chatting room open [%d]\n",chat->room_num);
 
-	//pthread_mutex_lock(&mutx);
-	//users = chat->users;
-	//user_cnt = chat->user_cnt;
 	FD_ZERO(&reads);
-	//pthread_mutex_unlock(&mutx);
-
 	while(1){
+
 	pthread_mutex_lock(&mutx);
-	//printf("[Ch. %d user_cnt : %d\n",chat->room_num,chat->user_cnt);
-	//printf("Test : %d\n",test);
+	/* 주기 적으로 해당 채팅방의 users를 확인하여 FD_SET을 해준다.*/
 	for(i = 0;i < chat->user_cnt; i++)
 	{
 		FD_SET(chat->users[i],&reads);
@@ -241,6 +231,7 @@ void * handle_clnt(void *arg)
 	}
 	pthread_mutex_unlock(&mutx);
 	
+	/* 타임 아웃을 설정하여 변경된 select클라이언트들을 갱신한다 */
 	cpy_reads = reads;
 	timeout.tv_sec = 1;
 	timeout.tv_usec = 1000;
@@ -262,12 +253,12 @@ void * handle_clnt(void *arg)
 				printf("[Ch. %d] client : %d quit\n",chat->room_num,chat->users[i]);
 				FD_CLR(chat->users[i],&reads);
 				
+				return_sock[return_cnt++] = chat->users[i];
 				pntArr(chat->users,chat->user_cnt);		// check users
 				delInd(chat->users,&(chat->user_cnt), i);	// chat->users에서 i인덱스 사용자 제거
 				pntArr(chat->users,chat->user_cnt);		// check users
 
 				/* 서버 대기실에 추가 */
-				return_sock[return_cnt++] = chat->users[i];
 			}
 			if(str_len == 0){		// 임시로 해놓은것임
 				FD_CLR(chat->users[i],&reads);
