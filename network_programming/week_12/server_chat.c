@@ -212,8 +212,8 @@ void * handle_clnt(void *arg)
 	int i, fd_max = -1, fd_num;
 	struct timeval timeout;
 	fd_set reads, cpy_reads;
-	int * users;
-	int user_cnt;
+	//int * users;
+	//int user_cnt;
 	//chat_room_num = *((int*) arg);
 	char message[BUFSIZ];
 	struct chatting_room* chat;
@@ -222,11 +222,11 @@ void * handle_clnt(void *arg)
 
 	printf("Thread chatting room open [%d]\n",chat->room_num);
 
-	pthread_mutex_lock(&mutx);
-	users = chat->users;
-	user_cnt = chat->user_cnt;
+	//pthread_mutex_lock(&mutx);
+	//users = chat->users;
+	//user_cnt = chat->user_cnt;
 	FD_ZERO(&reads);
-	pthread_mutex_unlock(&mutx);
+	//pthread_mutex_unlock(&mutx);
 
 	while(1){
 	pthread_mutex_lock(&mutx);
