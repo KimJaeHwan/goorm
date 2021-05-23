@@ -40,9 +40,9 @@ int main(int argc, char * argv[])
 		fgets(message, BUFSIZ, stdin);
 
 		send(sock, message, strlen(message), 0);
-
+		if(atoi(message) == 3)
+			break;
 	}
-
 	close(sock);
 	return 0;
 }

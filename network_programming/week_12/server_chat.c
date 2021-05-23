@@ -23,7 +23,7 @@ struct chatting_room{
 void pntArr(int *arr, int size);
 void delInd(int* arr, int* size, int ind);
 void * handle_clnt(void * arg);
-void send_msg(char *msg, int str_len, struct chatting_room *chat);
+void send_msg(char * msg, struct chatting_room *chat,int users_num);
 void error_handling(char * message);
 int maxArr(int * arr, int size);
 
@@ -88,10 +88,10 @@ int main(int argc, char * argv[])
 	/* 서버(대기실)의 상태 정보 초기화*/
 	//chat_room_num = 0;
 	//chatp[0].pid = 1111;
-	chatp[0].room_num = 0;
-	chatp[0].user_cnt = 0;
+	//chatp[0].room_num = 0;
+	//`chatp[0].user_cnt = 0;
 
-	for(i = 1;i<MAX_ROOM;i++){
+	for(i = 0;i<MAX_ROOM;i++){
 		chatp[i].room_num = i;
 		pthread_create(&t_id, NULL, handle_clnt,(void*)&chatp[i]);
 	}
@@ -129,8 +129,8 @@ int main(int argc, char * argv[])
 				{
 					clnt_adr_sz = sizeof(clnt_adr);
 					clnt_sock = accept(serv_sock, (struct sockaddr*)&clnt_adr, &clnt_adr_sz);
-					chatp[0].users[chatp[0].user_cnt] = clnt_sock;
-					chatp[0].user_cnt++;
+				//	chatp[0].users[chatp[0].user_cnt] = clnt_sock;
+				//	chatp[0].user_cnt++;
 					FD_SET(clnt_sock, &reads);
 					if(fd_max < clnt_sock)
 						fd_max = clnt_sock;
@@ -153,15 +153,15 @@ int main(int argc, char * argv[])
 					{
 						message[str_len] = 0;
 						printf("MSG from client %d : %s\n",i,message);
-						send(i,message,str_len,0);
+						//send(i,message,str_len,0);
 						switch(message[0]){
 							case '0':
 								send(i,menu_list,strlen(menu_list),0);
 								printf("send menu\n");
 								break;
 							case '1':
-								strcpy(message,"<ChatRoom info\n");
-								for(j = 1;j < MAX_ROOM;j++)
+								strcpy(message,"<ChatRoom info>\n");
+								for(j = 0;j < MAX_ROOM;j++)
 								{
 									sprintf(message,"%s[ID: %d] Chatroom-%d (%d/%d)\n",message,j,j,chatp[j].user_cnt,MAX_CAPA);
 								}
@@ -171,19 +171,25 @@ int main(int argc, char * argv[])
 								if(fd_max == i)		// 현재 fd_max값이 채팅방에 참여하고자 하는 clnt이면 값을 하나 내린다.
 									fd_max--;
 
+								chat_room_num = atoi(message + 2);
+								sprintf(message,"<Ch. %d> Chatting room!!!",chat_room_num);
+								send(i,message,strlen(message),0);
+
 								FD_CLR(i,&reads);	// 채팅방에 참여하고자하는 clnt를 select 검사에서 삭제
 								/* n번 채팅방 참여 시도 n번이 현재 존재하는 채팅방인지 체크하는 부분이 필요할듯*/						
-								chat_room_num = atoi(message + 2);
 								pthread_mutex_lock(&mutx);
-
-								printf("chat_room[%d] user_cnt : %d client_num : %d\n",chat_room_num,chatp[chat_room_num].user_cnt, i);
 								chatp[chat_room_num].users[chatp[chat_room_num].user_cnt++] = i;
 								pthread_mutex_unlock(&mutx);
-
+								
+								printf("chat_room[%d] user_cnt : %d client_num : %d\n",chat_room_num,chatp[chat_room_num].user_cnt, i);
+									
 								//pthread_create(&t_id, NULL, handle_clnt,(void*)&chatp[chat_room_num]);						
 								
 								break;
 							case '3':
+								printf("user[%d] exit\n",i);
+								FD_CLR(i,&reads);
+								close(i);
 								break;
 						}
 
@@ -243,8 +249,9 @@ void * handle_clnt(void *arg)
 	{
 		if(FD_ISSET(chat->users[i],&cpy_reads))
 		{
+			memset(message, 0, BUFSIZ);
 			str_len=recv(chat->users[i],message,BUFSIZ,0);
-			send_msg(message,str_len,chat);
+			send_msg(message,chat,i);
 			message[str_len] = 0;
 			printf("[Ch. %d] message %s\n",chat->room_num, message);	
 			pthread_mutex_lock(&mutx);
@@ -292,14 +299,29 @@ void pntArr(int *arr, int size)
 	}
 	printf("\n");
 }
-void send_msg(char * msg,int str_len, struct chatting_room *chat)
+void send_msg(char * msg, struct chatting_room *chat,int users_num)
 {
 	int i;
+	char * message;
 
+	message = (char *)calloc(1,strlen(msg) + 5);
 	pthread_mutex_lock(&mutx);
-	for(i = 0; i < chat->user_cnt; i++)
-		send(chat->users[i], msg, str_len, 0);
+	for(i = 0; i < chat->user_cnt; i++){
+		memset(message, 0 , strlen(msg + 5));
+		if( i != users_num)	// 다른 사용자에게 보내는 메세지
+		{
+			sprintf(message,"[%d] %s",chat->users[i],msg);
+			send(chat->users[i],message, strlen(message), 0);
+			printf("send message to [%d] [%s]\n",chat->users[i],message);
+		}else			// 나에게 보내는 메세지
+		{
+			sprintf(message,"[ME] %s",msg);
+			send(chat->users[i], message, strlen(message), 0);
+			printf("send message to [%d] [%s]\n",chat->users[i],message);
+		}
+	}
 	pthread_mutex_unlock(&mutx);
+	free(message);
 }
 void error_handling(char * message)
 {

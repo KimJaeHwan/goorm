@@ -91,19 +91,20 @@ int main(int argc, char * argv[])
 		if((fd_num = select(fd_max + 1,&reads, 0 ,0, 0)) == -1)
 			break;
 
-		printf("test================================\n");
 		for(i = 0; i < fd_max + 1;i++)
 		{
 			if(FD_ISSET(i,&reads))
 			{
 				if((str_len = recv(i, message, BUFSIZ, 0)) == 0)
 					close(i);
-				if(i == inet_sock){
+				if(i == inet_sock){	// receive from server
 					
 					message[str_len] = 0;
-					printf("MSG from server : %s %d\n",message,i);
+
+					/* print message from server */
+					printf("%s\n",message);
 				}
-				else
+				else			// receive from input message
 				{
 					send(inet_sock,message,str_len,0);
 				}
