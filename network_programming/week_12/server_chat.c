@@ -8,6 +8,7 @@
 #include <sys/select.h>
 #include <sys/shm.h>
 #include <pthread.h>
+#include <signal.h>
 
 #define MAX_ROOM 4	// 대기실 1개 채팅룸 3개
 #define MAX_USER 10
@@ -15,11 +16,13 @@
 #define KEY_NUM 1234
 
 struct chatting_room{
-	int room_num;
-	int users[MAX_CAPA];
-	int user_cnt;
+	pthread_t thread_id;
+	int room_num;		// 자신의 방번호
+	int users[MAX_CAPA];	// 자신의 채팅방에 있는 사용자들
+	int user_cnt;		// 자신의 채팅방에 있는 사용자들 수
 };
 
+void null(int sig);
 void pntArr(int *arr, int size);
 void delInd(int* arr, int* size, int ind);
 void * handle_clnt(void * arg);
@@ -40,32 +43,22 @@ int main(int argc, char * argv[])
 	fd_set reads, cpy_reads;
 
 	socklen_t clnt_adr_sz;
-
+	pthread_t t_id;
 	/* select value */
 	int fd_max, str_len, fd_num, i,j;
 	char message[BUFSIZ];
 	char menu_list[200] = "<MENU>\n1.채팅방 목록보기\n2. 채팅방 참여하기(사용법 : 2 <채팅방 번호>)\n3. 프로그램종료\n(0을 입력하면 메뉴가 다시 표시됩니다)\n";
 
-
-	//struct chatting_room chat[MAX_ROOM];
 	struct chatting_room *chatp;
-	
-	/* thread values */
-	pthread_t t_id;
-	
 	int chat_room_num;
-	/* shared memory values
-	int shm_id;
-	void * shm_addr;
-	int pid;
-	*/
+
+	struct sigaction act;			// return 되는 사용자들을 받기위한 시그널 변수
 
 	if(argc!=2){
 		printf("Usage : %s <port>\n",argv[0]);
 		exit(1);
 	}
 	
-	//int chat_room_num;
 	
 	pthread_mutex_init(&mutx, NULL);
 
@@ -84,16 +77,10 @@ int main(int argc, char * argv[])
 	/* 기본 chatting room 3개 생성 + 대기실 */
 	chatp = (struct chatting_room *)calloc(sizeof(struct chatting_room),MAX_ROOM);
 
-
-	/* 서버(대기실)의 상태 정보 초기화*/
-	//chat_room_num = 0;
-	//chatp[0].pid = 1111;
-	//chatp[0].room_num = 0;
-	//`chatp[0].user_cnt = 0;
-
 	for(i = 0;i<MAX_ROOM;i++){
 		chatp[i].room_num = i;
 		pthread_create(&t_id, NULL, handle_clnt,(void*)&chatp[i]);
+		(chatp + i)->thread_id = t_id;
 	}
 	FD_ZERO(&reads);
 	FD_SET(serv_sock, &reads);
@@ -180,8 +167,8 @@ int main(int argc, char * argv[])
 								pthread_mutex_lock(&mutx);
 								chatp[chat_room_num].users[chatp[chat_room_num].user_cnt++] = i;
 								pthread_mutex_unlock(&mutx);
-								
-								printf("chat_room[%d] user_cnt : %d client_num : %d\n",chat_room_num,chatp[chat_room_num].user_cnt, i);
+								pthread_kill(chatp[chat_room_num].thread_id,SIGUSR1);
+								printf("chat_room[%d] thread_id : %d client_num : %d\n",chat_room_num,chatp[chat_room_num].thread_id, i);
 									
 								//pthread_create(&t_id, NULL, handle_clnt,(void*)&chatp[chat_room_num]);						
 								
@@ -219,15 +206,23 @@ void * handle_clnt(void *arg)
 	char message[BUFSIZ];
 	struct chatting_room* chat;
 
+	struct sigaction act;		// 채팅방에 참여하고자하는 사용자를 받기위한 시그널
+
+	/* 시그널 등록 */
+	act.sa_handler=null;
+	sigemptyset(&act.sa_mask);
+	act.sa_flags=0;
+	sigaction(SIGUSR1,&act,0);	
+	
 	chat = (struct chatting_room *)arg;
 
-	printf("Thread chatting room open [%d]\n",chat->room_num);
+	printf("Thread chatting room open [%d] thread_id : %d\n",chat->room_num,chat->thread_id);
 
 	FD_ZERO(&reads);
 	while(1){
 
 	pthread_mutex_lock(&mutx);
-	/* 주기 적으로 해당 채팅방의 users를 확인하여 FD_SET을 해준다.*/
+	/* 주기 적으로 해당 채팅방의 users를 확인하여 FD_SET을 해준다. 시그널 등록을 해두었기에 시그널이 발생하면 바로 FD_SET을 한다*/
 	for(i = 0;i < chat->user_cnt; i++)
 	{
 		FD_SET(chat->users[i],&reads);
@@ -239,10 +234,11 @@ void * handle_clnt(void *arg)
 	
 	/* 타임 아웃을 설정하여 변경된 select클라이언트들을 갱신한다 */
 	cpy_reads = reads;
-	timeout.tv_sec = 1;
-	timeout.tv_usec = 1000;
-	if((fd_num = select(fd_max +1,&cpy_reads, 0 , 0, &timeout)) == -1)
-		break;
+	timeout.tv_sec = 10;
+	timeout.tv_usec = 10000;
+	if((fd_num = select(fd_max +1,&cpy_reads, 0 , 0, &timeout)) == -1){	// signal accept
+		continue;
+	}
 	if(fd_num == 0)	// timeout
 		continue;
 	for( i = 0; i < chat->user_cnt; i++)
@@ -280,7 +276,10 @@ void * handle_clnt(void *arg)
 
 	}
 }
-
+void null(int sig)
+{
+	printf("NULL signal!!\n");
+}
 void delInd(int* arr, int* size, int ind)
 {
 	for(; ind < *size - 1; ind++)
