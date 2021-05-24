@@ -22,6 +22,8 @@ struct chatting_room{
 	int user_cnt;		// 자신의 채팅방에 있는 사용자들 수
 };
 
+void sigKill(int sig);
+void intCntrl(int sig);
 void null(int sig);
 void pntArr(int *arr, int size);
 void delInd(int* arr, int* size, int ind);
@@ -33,23 +35,25 @@ int maxArr(int * arr, int size);
 /* server room  */
 int return_sock[MAX_USER];
 int return_cnt = 0;
+pthread_t serv_thread_id;
 pthread_mutex_t mutx;
+struct chatting_room *chatp;
+int serv_sock;
 
 int main(int argc, char * argv[])
 {
-	int serv_sock, clnt_sock;
+	int clnt_sock;
 	struct sockaddr_in serv_adr, clnt_adr;
 	struct timeval timeout;
 	fd_set reads, cpy_reads;
-
+	
 	socklen_t clnt_adr_sz;
 	pthread_t t_id;
 	/* select value */
 	int fd_max, str_len, fd_num, i,j;
 	char message[BUFSIZ];
-	char menu_list[200] = "<MENU>\n1.채팅방 목록보기\n2. 채팅방 참여하기(사용법 : 2 <채팅방 번호>)\n3. 프로그램종료\n(0을 입력하면 메뉴가 다시 표시됩니다)\n";
+	const char menu_list[300] = "<MENU>\n1.채팅방 목록보기\n2. 채팅방 참여하기(사용법 : 2 <채팅방 번호>)\n3. 프로그램종료\n(0을 입력하면 메뉴가 다시 표시됩니다)\n4. 채팅방 생성\n5. 채팅방 삭제(사용법 : 5 <채팅방 번호>)\n";
 
-	struct chatting_room *chatp;
 	int chat_room_num;
 
 	struct sigaction act;			// return 되는 사용자들을 받기위한 시그널 변수
@@ -73,15 +77,14 @@ int main(int argc, char * argv[])
 	act.sa_handler=null;
 	sigemptyset(&act.sa_mask);
 	act.sa_flags=0;
-	sigaction(SIGUSR2,&act,0);	
+	sigaction(SIGUSR1,&act,0);	
 
-	/*
-	 * sigint.sa_handler = intCntrl;
-	 * sigemptyset(&sigint.sa_mask);
-	 * act.sa_flags=0;
-	 * sigaction(SIGINT,&sigint,0);
-	 *
-	 */
+	
+	sigint.sa_handler = intCntrl;
+	sigemptyset(&sigint.sa_mask);
+	act.sa_flags=0;
+	sigaction(SIGINT,&sigint,0);
+	
 	if(bind(serv_sock, (struct sockaddr*) &serv_adr, sizeof(serv_adr)) == -1)
 		error_handling("bind() error");
 
@@ -90,7 +93,8 @@ int main(int argc, char * argv[])
 
 	/* 기본 chatting room 3개 생성 + 대기실 */
 	chatp = (struct chatting_room *)calloc(sizeof(struct chatting_room),MAX_ROOM);
-
+	serv_thread_id = pthread_self();
+	printf("waiting room thread_id : %d\n",serv_thread_id);
 	for(i = 0;i<MAX_ROOM;i++){
 		chatp[i].room_num = i;
 		pthread_create(&t_id, NULL, handle_clnt,(void*)&chatp[i]);
@@ -101,7 +105,6 @@ int main(int argc, char * argv[])
 	fd_max = serv_sock;
 	while(1)
 	{
-		cpy_reads = reads;
 		timeout.tv_sec = 10;
 		timeout.tv_usec = 10000;
 		
@@ -117,8 +120,11 @@ int main(int argc, char * argv[])
 		return_cnt = 0;
 		pthread_mutex_unlock(&mutx);
 
-		if((fd_num = select(fd_max + 1, &cpy_reads, 0,0, &timeout)) == -1)	// error or accept signal
+		cpy_reads = reads;
+		if((fd_num = select(fd_max + 1, &cpy_reads, 0,0, &timeout)) == -1){	// error or accept signal
+			printf("Signal!!! \n");
 			continue;
+		}
 		if(fd_num == 0)		// timeout
 			continue;
 		
@@ -164,10 +170,9 @@ int main(int argc, char * argv[])
 								pthread_mutex_lock(&mutx);
 								for(j = 0;j < MAX_ROOM;j++)
 								{
-									/*
-									 * if(chatp[j].thread_id)	// chatting room is available ??
-									 */
-									sprintf(message,"%s[ID: %d] Chatroom-%d (%d/%d)\n",message,j,j,chatp[j].user_cnt,MAX_CAPA);
+									
+									if(chatp[j].thread_id)	// chatting room is available ?? 
+										sprintf(message,"%s[ID: %d] Chatroom-%d (%d/%d)\n",message,j,j,chatp[j].user_cnt,MAX_CAPA);
 								}
 								pthread_mutex_unlock(&mutx);
 								send(i, message,strlen(message), 0);
@@ -184,10 +189,10 @@ int main(int argc, char * argv[])
 								/* n번 채팅방 참여 시도 n번이 현재 존재하는 채팅방인지 체크하는 부분이 필요할듯*/						
 								pthread_mutex_lock(&mutx);
 								chatp[chat_room_num].users[chatp[chat_room_num].user_cnt++] = i;
-								pthread_mutex_unlock(&mutx);
 								pthread_kill(chatp[chat_room_num].thread_id,SIGUSR1);
 								printf("chat_room[%d] thread_id : %d client_num : %d\n",chat_room_num,chatp[chat_room_num].thread_id, i);
 									
+								pthread_mutex_unlock(&mutx);
 								//pthread_create(&t_id, NULL, handle_clnt,(void*)&chatp[chat_room_num]);						
 								
 								break;
@@ -198,8 +203,8 @@ int main(int argc, char * argv[])
 								break;
 							case '4':
 								printf("open new chatting room !!!!\n");
-								/*
-								 * pthread_mutex_lock(&mutx);
+								
+								pthread_mutex_lock(&mutx);
 								for(j = 0; j < MAX_ROOM; j++){
 									if(chatp[j].thread_id == 0){
 										pthread_create(&t_id, NULL, handle_clnt,(void*)&chatp[j]);
@@ -217,24 +222,30 @@ int main(int argc, char * argv[])
 									strcpy(message,"Max Chatting room count nothing do anythig");
 									send(i,message,strlen(message),0);
 								}
-								*/
+								
 								break;
 							case '5':
 								printf("delete chatting room !!!\n");
 								
 								chat_room_num = atoi(message + 2);
-								//pthread_mutex_lock(&mutx);
+								pthread_mutex_lock(&mutx);
 								if(chatp[chat_room_num].user_cnt){
 									sprintf(message,"warning!! [Ch. %d] is not empty!!",chat_room_num);
 									send(i,message,strlen(message),0);
 									break;
 								}
 								// pthread_destroy
-								// pthread_kill(chatp[chat_room_num].thread_id,SIGKILL);
-								// chatp[chat_room_num].thread_id = 0;
-								// pthrea_mutx_unlock(&mutx);
-								// pthread_join()
+								//pthread_mutex_lock(&mutx);
+								sprintf(message,"[Ch. %d] Delete !!",chat_room_num);
+								send(i,message,strlen(message),0);
 
+								//pthread_detach(chatp[chat_room_num].thread_id);
+								pthread_kill(chatp[chat_room_num].thread_id,SIGUSR2);
+								//pthread_cancel(chatp[chat_room_num].thread_id);
+								chatp[chat_room_num].thread_id = 0;
+								pthread_mutex_unlock(&mutx);
+								pthread_join(chatp[chat_room_num].thread_id,0);
+								printf("delet Ch. %d successfully!!\n",chat_room_num);
 								break;
 						}
 
@@ -253,6 +264,11 @@ int maxArr(int * arr, int size)
 	for( i = 0; i < size; i++) { if(max < arr[i]) max = arr[i]; }
 	return max;
 }
+void sigKill(int sig)
+{
+	printf("kill thread_id : %d\n",pthread_self());
+	pthread_exit(0);
+}
 void * handle_clnt(void *arg)
 {
 	int str_len = 0;
@@ -265,13 +281,20 @@ void * handle_clnt(void *arg)
 	struct chatting_room* chat;
 
 	struct sigaction act;		// 채팅방에 참여하고자하는 사용자를 받기위한 시그널
-
+	struct sigaction actkill;
 	/* 시그널 등록 */
+	
 	act.sa_handler=null;
 	sigemptyset(&act.sa_mask);
 	act.sa_flags=0;
 	sigaction(SIGUSR1,&act,0);	
-	
+
+	actkill.sa_handler=sigKill;
+	sigemptyset(&actkill.sa_mask);
+	actkill.sa_flags=0;
+	sigaction(SIGUSR2,&actkill,0);
+
+
 	chat = (struct chatting_room *)arg;
 
 	printf("Thread chatting room open [%d] thread_id : %d\n",chat->room_num,chat->thread_id);
@@ -318,7 +341,7 @@ void * handle_clnt(void *arg)
 				pntArr(chat->users,chat->user_cnt);		// check users
 				delInd(chat->users,&(chat->user_cnt), i);	// chat->users에서 i인덱스 사용자 제거
 				pntArr(chat->users,chat->user_cnt);		// check users
-				kill(getpid(),SIGUSR2);				// signal to waiting room server
+				pthread_kill(serv_thread_id,SIGUSR1);				// signal to waiting room server
 				/* 서버 대기실에 추가 */
 			}
 			if(str_len == 0){		// 임시로 해놓은것임
@@ -336,28 +359,32 @@ void * handle_clnt(void *arg)
 }
 void null(int sig)
 {
-	printf("NULL signal!!\n");
+	printf("NULL signal!! %d\n",pthread_self());
 }
-/*
+
 void intCntrl(int sig)
 {
 	int i,j;
-	pthread_mutex_destroy(&mutx);
+	printf("Interrupt Signal!!!\n");
+	pthread_mutex_lock(&mutx);
 	for( i = 0; i < MAX_ROOM; i++){		// close server socket
-		if(chatp[i].thread_id){		// you have to chagne extern value chatp
+		if(chatp[i].thread_id)
+		{		// you have to chagne extern value chatp
 			for(j = 0; j < chatp[i].user_cnt; j++)
 			{
 				close(chatp[i].users[j]);
 			}
-			pthread_kill(chatp[i].thread_id, SIGINT);
+			pthread_kill(chatp[i].thread_id, SIGKILL);
 		}
 	
-	}
-	
+	}	
+	pthread_mutex_lock(&mutx);
+	pthread_mutex_destroy(&mutx);
+	free(chatp);
 	close(serv_sock);
-	
+	exit(1);
 }
-*/
+
 void delInd(int* arr, int* size, int ind)
 {
 	for(; ind < *size - 1; ind++)
