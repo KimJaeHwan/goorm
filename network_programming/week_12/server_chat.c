@@ -53,7 +53,7 @@ int main(int argc, char * argv[])
 	int chat_room_num;
 
 	struct sigaction act;			// return 되는 사용자들을 받기위한 시그널 변수
-
+	struct sigaction sigint;		// interrupt control
 	if(argc!=2){
 		printf("Usage : %s <port>\n",argv[0]);
 		exit(1);
@@ -68,6 +68,20 @@ int main(int argc, char * argv[])
 	serv_adr.sin_addr.s_addr = htonl(INADDR_ANY);
 	serv_adr.sin_port = htons(atoi(argv[1]));
 
+
+	/* 시그널 등록 */
+	act.sa_handler=null;
+	sigemptyset(&act.sa_mask);
+	act.sa_flags=0;
+	sigaction(SIGUSR2,&act,0);	
+
+	/*
+	 * sigint.sa_handler = intCntrl;
+	 * sigemptyset(&sigint.sa_mask);
+	 * act.sa_flags=0;
+	 * sigaction(SIGINT,&sigint,0);
+	 *
+	 */
 	if(bind(serv_sock, (struct sockaddr*) &serv_adr, sizeof(serv_adr)) == -1)
 		error_handling("bind() error");
 
@@ -88,8 +102,8 @@ int main(int argc, char * argv[])
 	while(1)
 	{
 		cpy_reads = reads;
-		timeout.tv_sec = 1;
-		timeout.tv_usec = 1000;
+		timeout.tv_sec = 10;
+		timeout.tv_usec = 10000;
 		
 		/* 채팅방에서 나온 사용자들 FD_SET해주는 과정 */
 		pthread_mutex_lock(&mutx);
@@ -103,8 +117,8 @@ int main(int argc, char * argv[])
 		return_cnt = 0;
 		pthread_mutex_unlock(&mutx);
 
-		if((fd_num = select(fd_max + 1, &cpy_reads, 0,0, &timeout)) == -1)	// error
-			break;
+		if((fd_num = select(fd_max + 1, &cpy_reads, 0,0, &timeout)) == -1)	// error or accept signal
+			continue;
 		if(fd_num == 0)		// timeout
 			continue;
 		
@@ -116,8 +130,6 @@ int main(int argc, char * argv[])
 				{
 					clnt_adr_sz = sizeof(clnt_adr);
 					clnt_sock = accept(serv_sock, (struct sockaddr*)&clnt_adr, &clnt_adr_sz);
-				//	chatp[0].users[chatp[0].user_cnt] = clnt_sock;
-				//	chatp[0].user_cnt++;
 					FD_SET(clnt_sock, &reads);
 					if(fd_max < clnt_sock)
 						fd_max = clnt_sock;
@@ -148,10 +160,16 @@ int main(int argc, char * argv[])
 								break;
 							case '1':
 								strcpy(message,"<ChatRoom info>\n");
+
+								pthread_mutex_lock(&mutx);
 								for(j = 0;j < MAX_ROOM;j++)
 								{
+									/*
+									 * if(chatp[j].thread_id)	// chatting room is available ??
+									 */
 									sprintf(message,"%s[ID: %d] Chatroom-%d (%d/%d)\n",message,j,j,chatp[j].user_cnt,MAX_CAPA);
 								}
+								pthread_mutex_unlock(&mutx);
 								send(i, message,strlen(message), 0);
 								break;
 							case '2':
@@ -177,6 +195,46 @@ int main(int argc, char * argv[])
 								printf("user[%d] exit\n",i);
 								FD_CLR(i,&reads);
 								close(i);
+								break;
+							case '4':
+								printf("open new chatting room !!!!\n");
+								/*
+								 * pthread_mutex_lock(&mutx);
+								for(j = 0; j < MAX_ROOM; j++){
+									if(chatp[j].thread_id == 0){
+										pthread_create(&t_id, NULL, handle_clnt,(void*)&chatp[j]);
+										chatp[j].thread_id = t_id;
+										chatp[j].room_num = j;
+										break;
+									}
+								}
+								pthread_mutex_unlock(&mutx);
+
+								if( j < MAX_ROOM ){	// can search empty room
+									sprintf(message,"[Ch. %d] open new Chatting room!!",j);
+									send(i,message,strlen(message),0);
+								}else{			// Max Chatting room count
+									strcpy(message,"Max Chatting room count nothing do anythig");
+									send(i,message,strlen(message),0);
+								}
+								*/
+								break;
+							case '5':
+								printf("delete chatting room !!!\n");
+								
+								chat_room_num = atoi(message + 2);
+								//pthread_mutex_lock(&mutx);
+								if(chatp[chat_room_num].user_cnt){
+									sprintf(message,"warning!! [Ch. %d] is not empty!!",chat_room_num);
+									send(i,message,strlen(message),0);
+									break;
+								}
+								// pthread_destroy
+								// pthread_kill(chatp[chat_room_num].thread_id,SIGKILL);
+								// chatp[chat_room_num].thread_id = 0;
+								// pthrea_mutx_unlock(&mutx);
+								// pthread_join()
+
 								break;
 						}
 
@@ -260,7 +318,7 @@ void * handle_clnt(void *arg)
 				pntArr(chat->users,chat->user_cnt);		// check users
 				delInd(chat->users,&(chat->user_cnt), i);	// chat->users에서 i인덱스 사용자 제거
 				pntArr(chat->users,chat->user_cnt);		// check users
-
+				kill(getpid(),SIGUSR2);				// signal to waiting room server
 				/* 서버 대기실에 추가 */
 			}
 			if(str_len == 0){		// 임시로 해놓은것임
@@ -280,6 +338,26 @@ void null(int sig)
 {
 	printf("NULL signal!!\n");
 }
+/*
+void intCntrl(int sig)
+{
+	int i,j;
+	pthread_mutex_destroy(&mutx);
+	for( i = 0; i < MAX_ROOM; i++){		// close server socket
+		if(chatp[i].thread_id){		// you have to chagne extern value chatp
+			for(j = 0; j < chatp[i].user_cnt; j++)
+			{
+				close(chatp[i].users[j]);
+			}
+			pthread_kill(chatp[i].thread_id, SIGINT);
+		}
+	
+	}
+	
+	close(serv_sock);
+	
+}
+*/
 void delInd(int* arr, int* size, int ind)
 {
 	for(; ind < *size - 1; ind++)
