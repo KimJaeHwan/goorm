@@ -39,6 +39,7 @@ pthread_t serv_thread_id;
 pthread_mutex_t mutx;
 struct chatting_room *chatp;
 int serv_sock;
+// int accept_user_cnt = 0;
 
 int main(int argc, char * argv[])
 {
@@ -134,8 +135,15 @@ int main(int argc, char * argv[])
 			{
 				if(i == serv_sock)
 				{
+
+					// if(accept_user_cnt == MAX_USER) {
+					//	printf("user is FULL!!!\n");
+					//	break;
+					// }
+					
 					clnt_adr_sz = sizeof(clnt_adr);
 					clnt_sock = accept(serv_sock, (struct sockaddr*)&clnt_adr, &clnt_adr_sz);
+					//accept_user_cnt++;
 					FD_SET(clnt_sock, &reads);
 					if(fd_max < clnt_sock)
 						fd_max = clnt_sock;
@@ -153,6 +161,7 @@ int main(int argc, char * argv[])
 						FD_CLR(i,&reads);
 						close(i);
 						printf("closed client: %d \n", i);
+						// accept_user_cnt--;
 					}
 					else
 					{
@@ -182,6 +191,15 @@ int main(int argc, char * argv[])
 									fd_max--;
 
 								chat_room_num = atoi(message + 2);
+								/*
+								 *  if(chatp[chat_room_num].user_cnt == MAX_CAPA)
+								 *  {
+								 *  	sprintf(message,"<Ch. %d> Chatting room is FULL!!!",chat_room_num);
+								 *  	send(i,message,strlen(message),0);
+								 *  	break;
+								 *  }
+								 */
+
 								sprintf(message,"<Ch. %d> Chatting room!!!",chat_room_num);
 								send(i,message,strlen(message),0);
 
@@ -193,13 +211,13 @@ int main(int argc, char * argv[])
 								printf("chat_room[%d] thread_id : %d client_num : %d\n",chat_room_num,chatp[chat_room_num].thread_id, i);
 									
 								pthread_mutex_unlock(&mutx);
-								//pthread_create(&t_id, NULL, handle_clnt,(void*)&chatp[chat_room_num]);						
 								
 								break;
 							case '3':
 								printf("user[%d] exit\n",i);
 								FD_CLR(i,&reads);
 								close(i);
+								//accept_user_cnt--;
 								break;
 							case '4':
 								printf("open new chatting room !!!!\n");
@@ -234,14 +252,10 @@ int main(int argc, char * argv[])
 									send(i,message,strlen(message),0);
 									break;
 								}
-								// pthread_destroy
-								//pthread_mutex_lock(&mutx);
 								sprintf(message,"[Ch. %d] Delete !!",chat_room_num);
 								send(i,message,strlen(message),0);
 
-								//pthread_detach(chatp[chat_room_num].thread_id);
 								pthread_kill(chatp[chat_room_num].thread_id,SIGUSR2);
-								//pthread_cancel(chatp[chat_room_num].thread_id);
 								chatp[chat_room_num].thread_id = 0;
 								pthread_mutex_unlock(&mutx);
 								pthread_join(chatp[chat_room_num].thread_id,0);
@@ -254,7 +268,6 @@ int main(int argc, char * argv[])
 			}
 		}
 	}
-//	}
 	close(serv_sock);
 	return 0;
 }
@@ -350,6 +363,7 @@ void * handle_clnt(void *arg)
 				pntArr(chat->users,chat->user_cnt);		// check users
 				delInd(chat->users,&(chat->user_cnt), i);	// chat->users에서 i인덱스 사용자 제거
 				pntArr(chat->users,chat->user_cnt);		// check users
+				// accept_user_cnt--;
 			}
 			pthread_mutex_unlock(&mutx);
 		}
