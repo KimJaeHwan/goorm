@@ -39,7 +39,7 @@ pthread_t serv_thread_id;
 pthread_mutex_t mutx;
 struct chatting_room *chatp;
 int serv_sock;
-// int accept_user_cnt = 0;
+int accept_user_cnt = 0;
 
 int main(int argc, char * argv[])
 {
@@ -51,7 +51,7 @@ int main(int argc, char * argv[])
 	socklen_t clnt_adr_sz;
 	pthread_t t_id;
 	/* select value */
-	int fd_max, str_len, fd_num, i,j;
+	int fd_max, str_len, fd_num, i,j,temp;
 	char message[BUFSIZ];
 	const char menu_list[300] = "<MENU>\n1.채팅방 목록보기\n2. 채팅방 참여하기(사용법 : 2 <채팅방 번호>)\n3. 프로그램종료\n(0을 입력하면 메뉴가 다시 표시됩니다)\n4. 채팅방 생성\n5. 채팅방 삭제(사용법 : 5 <채팅방 번호>)\n";
 
@@ -136,14 +136,14 @@ int main(int argc, char * argv[])
 				if(i == serv_sock)
 				{
 
-					// if(accept_user_cnt == MAX_USER) {
-					//	printf("user is FULL!!!\n");
-					//	break;
-					// }
+					if(accept_user_cnt == MAX_USER) {
+						printf("user is FULL!!!\n");
+						break;
+					}
 					
 					clnt_adr_sz = sizeof(clnt_adr);
 					clnt_sock = accept(serv_sock, (struct sockaddr*)&clnt_adr, &clnt_adr_sz);
-					//accept_user_cnt++;
+					accept_user_cnt++;
 					FD_SET(clnt_sock, &reads);
 					if(fd_max < clnt_sock)
 						fd_max = clnt_sock;
@@ -161,7 +161,7 @@ int main(int argc, char * argv[])
 						FD_CLR(i,&reads);
 						close(i);
 						printf("closed client: %d \n", i);
-						// accept_user_cnt--;
+						accept_user_cnt--;			// accept_cnt
 					}
 					else
 					{
@@ -187,24 +187,48 @@ int main(int argc, char * argv[])
 								send(i, message,strlen(message), 0);
 								break;
 							case '2':
-								if(fd_max == i)		// 현재 fd_max값이 채팅방에 참여하고자 하는 clnt이면 값을 하나 내린다.
-									fd_max--;
 
 								chat_room_num = atoi(message + 2);
-								/*
-								 *  if(chatp[chat_room_num].user_cnt == MAX_CAPA)
-								 *  {
-								 *  	sprintf(message,"<Ch. %d> Chatting room is FULL!!!",chat_room_num);
-								 *  	send(i,message,strlen(message),0);
-								 *  	break;
-								 *  }
-								 */
+								
+								/* 해당 채팅방이 존재하는지 여부 확인 */
+								if(chat_room_num > MAX_ROOM){
+									sprintf(message,"[Ch. %d] room is not exist!!",chat_room_num);
+									send(i,message,strlen(message),0);
+									break;
+								}
+								
+								pthread_mutex_lock(&mutx);
+								temp = chatp[chat_room_num].thread_id == 0 ? 1 : 0;
+								pthread_mutex_unlock(&mutx);
+								if(temp){
+									sprintf(message,"[Ch. %d] room is not exist!!!",chat_room_num);
+								  	send(i,message,strlen(message),0);
+									break;
+								}
+	
+								/* 해당 채팅방에 사람이 가득 찼는지 확인 */
+								pthread_mutex_lock(&mutx);
+								temp = chatp[chat_room_num].user_cnt;
+								pthread_mutex_unlock(&mutx);
+								if(temp == MAX_CAPA)
+								{
+									sprintf(message,"<Ch. %d> Chatting room is FULL!!!",chat_room_num);
+								  	send(i,message,strlen(message),0);
+								  	break;
+								}
+								
+								if(fd_max == i)		// 현재 fd_max값이 채팅방에 참여하고자 하는 clnt이면 값을 하나 내린다.
+									fd_max--;
 
 								sprintf(message,"<Ch. %d> Chatting room!!!",chat_room_num);
 								send(i,message,strlen(message),0);
 
 								FD_CLR(i,&reads);	// 채팅방에 참여하고자하는 clnt를 select 검사에서 삭제
 								/* n번 채팅방 참여 시도 n번이 현재 존재하는 채팅방인지 체크하는 부분이 필요할듯*/						
+
+								
+								
+								
 								pthread_mutex_lock(&mutx);
 								chatp[chat_room_num].users[chatp[chat_room_num].user_cnt++] = i;
 								pthread_kill(chatp[chat_room_num].thread_id,SIGUSR1);
@@ -217,7 +241,7 @@ int main(int argc, char * argv[])
 								printf("user[%d] exit\n",i);
 								FD_CLR(i,&reads);
 								close(i);
-								//accept_user_cnt--;
+								accept_user_cnt--;
 								break;
 							case '4':
 								printf("open new chatting room !!!!\n");
@@ -233,6 +257,7 @@ int main(int argc, char * argv[])
 								}
 								pthread_mutex_unlock(&mutx);
 
+								/* 새로운 채팅방이 생성 가능 상태인지 확인 */
 								if( j < MAX_ROOM ){	// can search empty room
 									sprintf(message,"[Ch. %d] open new Chatting room!!",j);
 									send(i,message,strlen(message),0);
@@ -246,12 +271,30 @@ int main(int argc, char * argv[])
 								printf("delete chatting room !!!\n");
 								
 								chat_room_num = atoi(message + 2);
+								/* 해당 채팅 방이 존재하는지 여부 확인 */
+								pthread_mutex_lock(&mutx);
+								temp = chatp[chat_room_num].thread_id == 0 ? 1 : 0;
+								pthread_mutex_unlock(&mutx);
+								if(temp){
+									sprintf(message,"[Ch. %d] room is not exist!!!",chat_room_num);
+								  	send(i,message,strlen(message),0);
+									break;
+								}
+								
+								if(chat_room_num > MAX_ROOM){
+									sprintf(message,"[Ch. %d] room is not exist!!",chat_room_num);
+									send(i,message,strlen(message),0);
+									break;
+								}
+
+								/* 해당 채팅 방에 사람이 존재하는지 확인 */
 								pthread_mutex_lock(&mutx);
 								if(chatp[chat_room_num].user_cnt){
 									sprintf(message,"warning!! [Ch. %d] is not empty!!",chat_room_num);
 									send(i,message,strlen(message),0);
 									break;
 								}
+
 								sprintf(message,"[Ch. %d] Delete !!",chat_room_num);
 								send(i,message,strlen(message),0);
 
@@ -363,7 +406,7 @@ void * handle_clnt(void *arg)
 				pntArr(chat->users,chat->user_cnt);		// check users
 				delInd(chat->users,&(chat->user_cnt), i);	// chat->users에서 i인덱스 사용자 제거
 				pntArr(chat->users,chat->user_cnt);		// check users
-				// accept_user_cnt--;
+				accept_user_cnt--;
 			}
 			pthread_mutex_unlock(&mutx);
 		}
