@@ -386,7 +386,7 @@ void * handle_clnt(void *arg)
 			str_len=recv(chat->users[i],message,BUFSIZ,0);
 			send_msg(message,chat,i);
 			message[str_len] = 0;
-			printf("[Ch. %d] message %s\n",chat->room_num, message);	
+			printf("[Ch. %d] user : %d  message : %s\n",chat->room_num,chat->users[i], message);	
 			pthread_mutex_lock(&mutx);
 			if(!strcmp(message,"quit\n"))		// 'quit 와 같은 해제 문자 입력시 탈출
 			{
@@ -424,6 +424,8 @@ void intCntrl(int sig)
 	int i,j;
 	printf("Interrupt Signal!!!\n");
 	pthread_mutex_lock(&mutx);
+	
+	printf("1) thread kill\n");
 	for( i = 0; i < MAX_ROOM; i++){		// close server socket
 		if(chatp[i].thread_id)
 		{		// you have to chagne extern value chatp
@@ -431,13 +433,19 @@ void intCntrl(int sig)
 			{
 				close(chatp[i].users[j]);
 			}
-			pthread_kill(chatp[i].thread_id, SIGKILL);
+			pthread_kill(chatp[i].thread_id, SIGUSR2);
+			pthread_join(chatp[i].thread_id,0);
 		}
 	
 	}	
-	pthread_mutex_lock(&mutx);
+	
+	pthread_mutex_unlock(&mutx);
+	printf("2) mutex destroy\n");
 	pthread_mutex_destroy(&mutx);
+
+	printf("3) memory free\n");
 	free(chatp);
+	printf("4) close socket\n");
 	close(serv_sock);
 	exit(1);
 }
@@ -471,7 +479,7 @@ void send_msg(char * msg, struct chatting_room *chat,int users_num)
 		memset(message, 0 , strlen(msg + 5));
 		if( i != users_num)	// 다른 사용자에게 보내는 메세지
 		{
-			sprintf(message,"[%d] %s",chat->users[i],msg);
+			sprintf(message,"[%d] %s",chat->users[users_num],msg);
 			send(chat->users[i],message, strlen(message), 0);
 			printf("send message to [%d] [%s]\n",chat->users[i],message);
 		}else			// 나에게 보내는 메세지
