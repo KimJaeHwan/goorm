@@ -6,7 +6,6 @@
 #include <sys/socket.h>
 #include <sys/time.h>		// timeout안쓰면 삭제해도 됨
 #include <sys/select.h>
-#include <sys/shm.h>
 #include <pthread.h>
 #include <signal.h>
 
